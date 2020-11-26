@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "bot": {
+      "id": "{YOUR_BOT_ID}",
+      "token": "{YOUR_BOT_TOKEN}"
+    },
+    "player": {
+      "volume": 5
+    }
+  },
+  "prefix": "!"
+}

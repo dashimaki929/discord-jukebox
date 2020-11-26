@@ -24,9 +24,11 @@ exports.cmd_summon = async ({ self, guildID, channelID, voiceChannel }) => {
     return;
   }
 
-  await voiceChannel.join().then((connection) => {
+  await voiceChannel.join().then(async (connection) => {
     self.connectedVoiceChannels[guildID] = channelID;
     self.connections[guildID] = connection;
+
+    await _playAuto({ self, connection, guildID });
   });
 };
 
@@ -54,7 +56,6 @@ exports.cmd_disconnect = async ({ self, guildID }) => {
  *
  * @param {*} self
  * @param {*} guildID
- * @param {*} url
  */
 exports.cmd_play = async ({ self, guildID, url }) => {
   const connection = self.connections[guildID];
@@ -63,18 +64,7 @@ exports.cmd_play = async ({ self, guildID, url }) => {
     return;
   }
 
-  self.isPlaying = true;
-  self.dispatchers[guildID] = connection.play(
-    await ytdl(url, {
-      filter: "audioonly",
-      opusEncoded: true,
-      encoderArgs: ["-af", "bass=g=10,dynaudnorm=f=200"],
-    }),
-    {
-      type: "opus",
-      volume: settings.player.volume / 100,
-    }
-  );
+  self.musicQueue.push(url);
 };
 
 /**
@@ -101,7 +91,8 @@ exports.cmd_pause = async ({ self, guildID }) => {
 
   dispatcher.pause();
   self.isPlaying = false;
-}
+  self.setNowPlayingStatus(`\u275A\u275A ${self.nowPlayingMusicTitle} `);
+};
 
 /**
  * Resume the paused music.
@@ -127,4 +118,65 @@ exports.cmd_resume = async ({ self, guildID }) => {
 
   dispatcher.resume();
   self.isPlaying = true;
+  self.setNowPlayingStatus(`${self.nowPlayingMusicTitle} `);
+};
+
+// #================================
+// #  Internal Functions
+// #                defined below.
+// #================================
+
+/**
+ * [Recursive] Continue to play the music.
+ *
+ * @param {*} self
+ * @param {*} connection
+ * @param {*} guildID
+ * @param {*} url
+ */
+async function _play({ self, connection, guildID, url }) {
+  const stream = await ytdl(url, {
+    filter: "audioonly",
+    opusEncoded: true,
+    encoderArgs: ["-af", "bass=g=10,dynaudnorm=f=200"],
+  });
+
+  stream.on("info", (info) => {
+    self.nowPlayingMusicTitle = info.videoDetails.title;
+    self.setNowPlayingStatus(`${info.videoDetails.title} `);
+  });
+
+  self.isPlaying = true;
+  self.dispatchers[guildID] = connection
+    .play(stream, {
+      type: "opus",
+      volume: settings.player.volume / 100,
+    })
+    .on("finish", () => {
+      const nextMusic = self.musicQueue.shift();
+      if (nextMusic) {
+        _play({ self, connection, guildID, url: nextMusic });
+      } else {
+        _playAuto({ self, connection, guildID });
+      }
+    })
+    .on("error", (error) => console.error(error));
+}
+
+/**
+ * Manage auto playlists.
+ *
+ * @param {*} self
+ * @param {*} connection
+ * @param {*} guildID
+ */
+async function _playAuto({ self, connection, guildID }) {
+  if (!self.autoPlaylist.length) {
+    self.initPlaylist();
+  }
+
+  const nextMusic = self.autoPlaylist.shift();
+  if (nextMusic) {
+    _play({ self, connection, guildID, url: nextMusic });
+  }
 }

@@ -2,6 +2,10 @@ const fs = require("fs");
 const { settings, prefix } = JSON.parse(
   fs.readFileSync("./config/settings.json", "utf8")
 );
+const autoPlaylist = fs
+  .readFileSync("./config/autoplaylist.txt", "utf8")
+  .split(/\r?\n/);
+
 const Discord = require("discord.js");
 const client = new Discord.Client();
 
@@ -21,10 +25,22 @@ const Bot = function () {
   this.connections = {};
   this.dispatchers = {};
 
-  this.voiceClientIn = function (guildID) {
-    return this.connectedVoiceChannels[guildID]
-      ? this.connectedVoiceChannels[guildID]
-      : null;
+  this.musicQueue = [];
+  this.autoPlaylist = [];
+  this.initPlaylist = function () {
+    const shuffle = ([...array]) => {
+      for (let i = array.length - 1; i >= 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    };
+    this.autoPlaylist = shuffle(autoPlaylist);
+  };
+
+  this.nowPlayingMusicTitle = "";
+  this.setNowPlayingStatus = function (title) {
+    client.user.setActivity(title, { type: "LISTENING" });
   };
 };
 const self = new Bot();

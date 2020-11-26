@@ -9,4 +9,8 @@ node_modules/
 # *.o
 # *.so
 
+# 音楽のキャッシュファイル
 cache/
+
+# configファイル(Token情報保護のため)
+config/settings.json
