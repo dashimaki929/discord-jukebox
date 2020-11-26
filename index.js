@@ -5,12 +5,21 @@ const { settings, prefix } = JSON.parse(
 const Discord = require("discord.js");
 const client = new Discord.Client();
 
-const { cmd_summon, cmd_disconnect } = require("./src/commands");
+const {
+  cmd_summon,
+  cmd_disconnect,
+  cmd_play,
+  cmd_pause,
+  cmd_resume,
+} = require("./src/commands");
 
 // Bot state
 const Bot = function () {
+  this.isPlaying = false;
+
   this.connectedVoiceChannels = {};
   this.connections = {};
+  this.dispatchers = {};
 
   this.voiceClientIn = function (guildID) {
     return this.connectedVoiceChannels[guildID]
@@ -59,7 +68,7 @@ client.on("message", async (message) => {
       self,
       guildID: message.guild.id,
       channelID: message.member.voice.channelID,
-    })
+    });
   }
 
   /**
@@ -68,6 +77,36 @@ client.on("message", async (message) => {
    * Format: `!play {URL}`
    */
   if (message.content.startsWith("!play")) {
+    const [command, url] = message.content.split(" ");
+    cmd_play({
+      self,
+      guildID: message.guild.id,
+      url,
+    });
+  }
+
+  /**
+   * pause command
+   *
+   * Format: `!pause` or `!stop`
+   */
+  if (message.content === "!pause" || message.content === "!stop") {
+    cmd_pause({
+      self,
+      guildID: message.guild.id,
+    });
+  }
+
+  /**
+   * resume command
+   *
+   * Format: `!resume` pr `!start`
+   */
+  if (message.content === "!resume" || message.content === "!start") {
+    cmd_resume({
+      self,
+      guildID: message.guild.id,
+    });
   }
 });
 
