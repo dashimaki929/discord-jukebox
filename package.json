@@ -9,7 +9,6 @@
   "author": "dashimaki",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^12.4.1",
-    "youtube-dl": "^3.0.2"
+    "discord.js": "^12.4.1"
   }
 }
