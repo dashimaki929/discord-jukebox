@@ -164,13 +164,18 @@ async function _play({ self, connection, guildID, url }) {
     opusEncoded: true,
     encoderArgs: [
       "-af",
+      settings.player.filter,
       // "bass=g=10,dynaudnorm=f=200",
       // "equalizer=f=1000:width_type=h:width=200:g=-10",
       // "equalizer=f=440:width_type=o:width=2:g=5",
-      "equalizer=f=440:width_type=o:width=2:g=5,equalizer=f=1000:width_type=h:width=200:g=-10",
       // "equalizer=f=40:width_type=h:width=50:g=<gain>",
       // "bass=g=3:f=110:w=0.6",
     ],
+    requestOptions: {
+      headers: {
+        Cookie: settings.headers.cookie,
+      },
+    },
   });
 
   stream.on("info", (info) => {
