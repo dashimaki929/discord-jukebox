@@ -13,6 +13,7 @@ const {
   cmd_summon,
   cmd_disconnect,
   cmd_play,
+  cmd_skip,
   cmd_pause,
   cmd_resume,
 } = require("./src/commands");
@@ -98,6 +99,18 @@ client.on("message", async (message) => {
       self,
       guildID: message.guild.id,
       url,
+    });
+  }
+
+  /**
+   * skip command
+   *
+   * Format: `!skip`
+   */
+  if (message.content === "!skip") {
+    cmd_skip({
+      self,
+      guildID: message.guild.id,
     });
   }
 

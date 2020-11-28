@@ -28,7 +28,9 @@ exports.cmd_summon = async ({ self, guildID, channelID, voiceChannel }) => {
     self.connectedVoiceChannels[guildID] = channelID;
     self.connections[guildID] = connection;
 
-    await _playAuto({ self, connection, guildID });
+    if (!self.isPlaying) {
+      await _playAuto({ self, connection, guildID });
+    }
   });
 };
 
@@ -46,6 +48,7 @@ exports.cmd_disconnect = async ({ self, guildID }) => {
   }
 
   await connection.disconnect();
+  self.isPlaying = false;
   delete self.connectedVoiceChannels[guildID];
   delete self.connections[guildID];
   delete self.dispatchers[guildID];
@@ -65,6 +68,27 @@ exports.cmd_play = async ({ self, guildID, url }) => {
   }
 
   self.musicQueue.push(url);
+};
+
+/**
+ * Skip the currently playing music.
+ *
+ * @param {*} self
+ * @param {*} guildID
+ */
+exports.cmd_skip = async ({ self, guildID }) => {
+  const connection = self.connections[guildID];
+  if (!connection) {
+    // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
+    return;
+  }
+  const dispatcher = self.dispatchers[guildID];
+  if (!dispatcher) {
+    // TODO: 「音楽再生中じゃねーよ」って例外を投げる
+    return;
+  }
+
+  dispatcher.end();
 };
 
 /**
@@ -138,7 +162,15 @@ async function _play({ self, connection, guildID, url }) {
   const stream = await ytdl(url, {
     filter: "audioonly",
     opusEncoded: true,
-    encoderArgs: ["-af", "bass=g=10,dynaudnorm=f=200"],
+    encoderArgs: [
+      "-af",
+      // "bass=g=10,dynaudnorm=f=200",
+      // "equalizer=f=1000:width_type=h:width=200:g=-10",
+      // "equalizer=f=440:width_type=o:width=2:g=5",
+      "equalizer=f=440:width_type=o:width=2:g=5,equalizer=f=1000:width_type=h:width=200:g=-10",
+      // "equalizer=f=40:width_type=h:width=50:g=<gain>",
+      // "bass=g=3:f=110:w=0.6",
+    ],
   });
 
   stream.on("info", (info) => {
@@ -153,6 +185,9 @@ async function _play({ self, connection, guildID, url }) {
       volume: settings.player.volume / 100,
     })
     .on("finish", () => {
+      self.isPlaying = false;
+      self.setNowPlayingStatus("");
+
       const nextMusic = self.musicQueue.shift();
       if (nextMusic) {
         _play({ self, connection, guildID, url: nextMusic });
