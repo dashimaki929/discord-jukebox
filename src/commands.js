@@ -29,6 +29,13 @@ exports.cmd_summon = async ({ self, channelID, voiceChannel }) => {
     self.connectedVoiceChannel = channelID;
     self.connection = connection;
 
+    if (!self.intervalId) {
+      // 時報タイマー設定
+      self.intervalId = setInterval(() => {
+        _timeSignal({ self });
+      }, 1000);
+    }
+
     if (!self.isPlaying) {
       await _playNext({ self });
     }
@@ -79,7 +86,12 @@ exports.cmd_skip = async ({ self }) => {
     return;
   }
 
-  self.dispatcher.end();
+  _fadeOut({
+    self,
+    callback: () => {
+      self.dispatcher.end();
+    },
+  });
 };
 
 /**
@@ -101,9 +113,14 @@ exports.cmd_pause = async ({ self }) => {
     return;
   }
 
-  self.dispatcher.pause();
-  self.isPlaying = false;
-  self.setNowPlayingStatus(`\u275A\u275A ${self.nowPlayingMusicTitle} `);
+  _fadeOut({
+    self,
+    callback: () => {
+      self.dispatcher.pause();
+      self.isPlaying = false;
+      self.setNowPlayingStatus(`\u275A\u275A ${self.nowPlayingMusic.title} `);
+    },
+  });
 };
 
 /**
@@ -127,7 +144,9 @@ exports.cmd_resume = async ({ self }) => {
 
   self.dispatcher.resume();
   self.isPlaying = true;
-  self.setNowPlayingStatus(`${self.nowPlayingMusicTitle} `);
+  self.setNowPlayingStatus(`${self.nowPlayingMusic.title} `);
+
+  _fadeIn({ self });
 };
 
 /**
@@ -155,8 +174,6 @@ exports.cmd_setaudiofilter = async ({ self, audioFilter }) => {
   self.audioFilter = audioFilter;
 };
 
-
-
 // #================================
 // #  Internal Functions
 // #                defined below.
@@ -168,10 +185,11 @@ exports.cmd_setaudiofilter = async ({ self, audioFilter }) => {
  * @param {*} self
  * @param {*} url
  */
-async function _play({ self, url }) {
+async function _play({ self, url, volume = self.volume, progress = 0 }) {
   const stream = await ytdl(url, {
     filter: "audioonly",
     opusEncoded: true,
+    seek: progress,
     encoderArgs: [
       "-af",
       self.audioFilter,
@@ -190,7 +208,7 @@ async function _play({ self, url }) {
   });
 
   stream.on("info", (info) => {
-    self.nowPlayingMusicTitle = info.videoDetails.title;
+    self.nowPlayingMusic.title = info.videoDetails.title;
     self.setNowPlayingStatus(`${info.videoDetails.title} `);
   });
 
@@ -198,7 +216,10 @@ async function _play({ self, url }) {
   self.dispatcher = self.connection
     .play(stream, {
       type: "opus",
-      volume: settings.player.volume / 100,
+      volume,
+    })
+    .on("start", () => {
+      self.nowPlayingMusic.progress = 0;
     })
     .on("finish", () => {
       _playNext({ self });
@@ -223,15 +244,77 @@ async function _playNext({ self }) {
   }
 
   const nextMusic = self.musicQueue.shift();
+  self.nowPlayingMusic.url = nextMusic;
   if (nextMusic) {
     _play({ self, url: nextMusic });
   }
 }
 
 /**
+ * Sound the Timesignal(alerm) every hour.
+ *
+ * @param {*} self
+ */
+async function _timeSignal({ self }) {
+  const now = new Date();
+  if (now.getMinutes() === 59 && now.getSeconds() === 55) {
+    _fadeOut({
+      self,
+      callback: () => {
+        self.dispatcher.pause();
+        self.connection
+          .play(fs.createReadStream("./mp3/jihou.mp3"), {
+            volume: self.volume * 1.5,
+          })
+          .on("finish", async () => {
+            self.nowPlayingMusic.progress -= 5;
+            await _play({
+              self,
+              url: self.nowPlayingMusic.url,
+              volume: 0,
+              progress: self.nowPlayingMusic.progress,
+            });
+            await _fadeIn({ self });
+          });
+      },
+    });
+  } else {
+    self.nowPlayingMusic.progress++;
+  }
+}
+
+async function _fadeOut({ self, duration = 2000, x = 0, callback = () => {} }) {
+  if (x <= 1) {
+    setTimeout(() => {
+      const y = Math.round(x * x * 100) / 100;
+      self.dispatcher.setVolume(
+        (self.volume * Math.round((1 - y) * 100)) / 100
+      );
+      _fadeOut({ self, duration, x: (x += 0.1), callback });
+    }, duration / 10);
+  } else {
+    callback();
+    return Promise.resolve();
+  }
+}
+
+async function _fadeIn({ self, duration = 2000, x = 0, callback = () => {} }) {
+  if (x <= 1) {
+    setTimeout(() => {
+      const y = Math.round(x * x * 100) / 100;
+      self.dispatcher.setVolume((self.volume * Math.round(y * 100)) / 100);
+      _fadeIn({ self, duration, x: (x += 0.1), callback });
+    }, duration / 10);
+  } else {
+    callback();
+    return Promise.resolve();
+  }
+}
+
+/**
  * GET playlist data.
- * 
- * @param {*} playlistName 
+ *
+ * @param {*} playlistName
  */
 async function _getPlaylistData(playlistName) {
   const url = "https://dashimaki.work/playlist/getMusicApi";

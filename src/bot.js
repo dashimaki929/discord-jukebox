@@ -2,7 +2,7 @@ class Bot {
   static client = null;
   static dispatchingBotCount = 0;
 
-  constructor({ autoPlaylist = [], audioFilter = "" }) {
+  constructor({ autoPlaylist = [], volume = 20, audioFilter = "" }) {
     this.isPlaying = false;
 
     this.connectedVoiceChannel = null;
@@ -11,9 +11,16 @@ class Bot {
 
     this.autoPlaylist = autoPlaylist;
     this.musicQueue = [];
-    this.nowPlayingMusicTitle = "";
+    this.nowPlayingMusic = {
+      title: "",
+      url: "",
+      progress: 0,
+    };
 
+    this.volume = volume / 100;
     this.audioFilter = audioFilter;
+
+    this.intervalId = null;
 
     this.initPlaylist();
   }

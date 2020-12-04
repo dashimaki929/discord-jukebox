@@ -40,6 +40,7 @@ client.on("message", async (message) => {
     // サーバーに呼び出し前の場合
     dispatchingBots[guildID] = new Bot({
       autoPlaylist,
+      volume: settings.player.volume,
       audioFilter: settings.player.filter,
     });
     self = dispatchingBots[guildID];
@@ -50,7 +51,7 @@ client.on("message", async (message) => {
    * debug command
    */
   if (message.content === "!debug") {
-    console.log(self);
+    console.log(self.nowPlayingMusic);
   }
 
   /**
