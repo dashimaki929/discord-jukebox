@@ -4,6 +4,7 @@ const { settings } = JSON.parse(
 );
 
 const ytdl = require("discord-ytdl-core");
+const axios = require("axios");
 
 /**
  * Call a bot to the voice channel you are on.
@@ -13,7 +14,7 @@ const ytdl = require("discord-ytdl-core");
  * @param {*} channelID
  * @param {*} voiceChannel
  */
-exports.cmd_summon = async ({ self, guildID, channelID, voiceChannel }) => {
+exports.cmd_summon = async ({ self, channelID, voiceChannel }) => {
   if (!channelID) {
     console.log(
       "[ERROR]",
@@ -25,11 +26,11 @@ exports.cmd_summon = async ({ self, guildID, channelID, voiceChannel }) => {
   }
 
   await voiceChannel.join().then(async (connection) => {
-    self.connectedVoiceChannels[guildID] = channelID;
-    self.connections[guildID] = connection;
+    self.connectedVoiceChannel = channelID;
+    self.connection = connection;
 
     if (!self.isPlaying) {
-      await _playAuto({ self, connection, guildID });
+      await _playNext({ self });
     }
   });
 };
@@ -38,73 +39,60 @@ exports.cmd_summon = async ({ self, guildID, channelID, voiceChannel }) => {
  * Disconnect bot from connected channels in the server.
  *
  * @param {*} self
- * @param {*} guildID
  */
-exports.cmd_disconnect = async ({ self, guildID }) => {
-  const connection = self.connections[guildID];
-  if (!connection) {
+exports.cmd_disconnect = async ({ self }) => {
+  if (!self.connection) {
     // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
     return;
   }
 
-  await connection.disconnect();
-  self.isPlaying = false;
-  delete self.connectedVoiceChannels[guildID];
-  delete self.connections[guildID];
-  delete self.dispatchers[guildID];
+  await self.connection.disconnect();
 };
 
 /**
  * Play the music in the specified url.
  *
  * @param {*} self
- * @param {*} guildID
+ * @param {*} url
  */
-exports.cmd_play = async ({ self, guildID, url }) => {
-  const connection = self.connections[guildID];
-  if (!connection) {
+exports.cmd_play = async ({ self, url }) => {
+  if (!self.connection) {
     // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
     return;
   }
 
-  self.musicQueue.push(url);
+  self.musicQueue.unshift(url);
 };
 
 /**
  * Skip the currently playing music.
  *
  * @param {*} self
- * @param {*} guildID
  */
-exports.cmd_skip = async ({ self, guildID }) => {
-  const connection = self.connections[guildID];
-  if (!connection) {
+exports.cmd_skip = async ({ self }) => {
+  if (!self.connection) {
     // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
     return;
   }
-  const dispatcher = self.dispatchers[guildID];
-  if (!dispatcher) {
+  if (!self.dispatcher) {
     // TODO: 「音楽再生中じゃねーよ」って例外を投げる
     return;
   }
 
-  dispatcher.end();
+  self.dispatcher.end();
 };
 
 /**
  * Pause the music that is playing.
  *
  * @param {*} self
- * @param {*} guildID
  */
-exports.cmd_pause = async ({ self, guildID }) => {
-  const connection = self.connections[guildID];
-  if (!connection) {
+exports.cmd_pause = async ({ self }) => {
+  if (!self.connection) {
     // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
     return;
   }
-  const dispatcher = self.dispatchers[guildID];
-  if (!dispatcher) {
+  if (!self.dispatcher) {
     // TODO: 「音楽再生中じゃねーよ」って例外を投げる
     return;
   }
@@ -113,7 +101,7 @@ exports.cmd_pause = async ({ self, guildID }) => {
     return;
   }
 
-  dispatcher.pause();
+  self.dispatcher.pause();
   self.isPlaying = false;
   self.setNowPlayingStatus(`\u275A\u275A ${self.nowPlayingMusicTitle} `);
 };
@@ -122,16 +110,13 @@ exports.cmd_pause = async ({ self, guildID }) => {
  * Resume the paused music.
  *
  * @param {*} self
- * @param {*} guildID
  */
-exports.cmd_resume = async ({ self, guildID }) => {
-  const connection = self.connections[guildID];
-  if (!connection) {
+exports.cmd_resume = async ({ self }) => {
+  if (!self.connection) {
     // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
     return;
   }
-  const dispatcher = self.dispatchers[guildID];
-  if (!dispatcher) {
+  if (!self.dispatcher) {
     // TODO: 「音楽再生中じゃねーよ」って例外を投げる
     return;
   }
@@ -140,10 +125,37 @@ exports.cmd_resume = async ({ self, guildID }) => {
     return;
   }
 
-  dispatcher.resume();
+  self.dispatcher.resume();
   self.isPlaying = true;
   self.setNowPlayingStatus(`${self.nowPlayingMusicTitle} `);
 };
+
+/**
+ * Upadate the playlist.
+ *
+ * @param {*} self
+ */
+exports.cmd_setplaylist = async ({ self, playlistName }) => {
+  _getPlaylistData(playlistName)
+    .then((res) => {
+      self.autoPlaylist = res.data.split(/\r?\n/);
+      self.initPlaylist();
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
+
+/**
+ * Setting audio filter.
+ *
+ * @param {*} self
+ */
+exports.cmd_setaudiofilter = async ({ self, audioFilter }) => {
+  self.audioFilter = audioFilter;
+};
+
+
 
 // #================================
 // #  Internal Functions
@@ -154,20 +166,19 @@ exports.cmd_resume = async ({ self, guildID }) => {
  * [Recursive] Continue to play the music.
  *
  * @param {*} self
- * @param {*} connection
- * @param {*} guildID
  * @param {*} url
  */
-async function _play({ self, connection, guildID, url }) {
+async function _play({ self, url }) {
   const stream = await ytdl(url, {
     filter: "audioonly",
     opusEncoded: true,
     encoderArgs: [
       "-af",
-      settings.player.filter,
+      self.audioFilter,
       // "bass=g=10,dynaudnorm=f=200",
       // "equalizer=f=1000:width_type=h:width=200:g=-10",
       // "equalizer=f=440:width_type=o:width=2:g=5",
+      // "equalizer=f=440:width_type=o:width=2:g=5,equalizer=f=1000:width_type=h:width=200:g=-10"
       // "equalizer=f=40:width_type=h:width=50:g=<gain>",
       // "bass=g=3:f=110:w=0.6",
     ],
@@ -184,39 +195,45 @@ async function _play({ self, connection, guildID, url }) {
   });
 
   self.isPlaying = true;
-  self.dispatchers[guildID] = connection
+  self.dispatcher = self.connection
     .play(stream, {
       type: "opus",
       volume: settings.player.volume / 100,
     })
     .on("finish", () => {
-      self.isPlaying = false;
-      self.setNowPlayingStatus("");
-
-      const nextMusic = self.musicQueue.shift();
-      if (nextMusic) {
-        _play({ self, connection, guildID, url: nextMusic });
-      } else {
-        _playAuto({ self, connection, guildID });
-      }
+      _playNext({ self });
     })
-    .on("error", (error) => console.error(error));
+    .on("error", (error) => {
+      console.error(error);
+      _playNext({ self });
+    });
 }
 
 /**
- * Manage auto playlists.
+ * Play next music.
  *
  * @param {*} self
- * @param {*} connection
- * @param {*} guildID
  */
-async function _playAuto({ self, connection, guildID }) {
-  if (!self.autoPlaylist.length) {
+async function _playNext({ self }) {
+  self.isPlaying = false;
+  self.setNowPlayingStatus("");
+
+  if (!self.musicQueue.length) {
     self.initPlaylist();
   }
 
-  const nextMusic = self.autoPlaylist.shift();
+  const nextMusic = self.musicQueue.shift();
   if (nextMusic) {
-    _play({ self, connection, guildID, url: nextMusic });
+    _play({ self, url: nextMusic });
   }
+}
+
+/**
+ * GET playlist data.
+ * 
+ * @param {*} playlistName 
+ */
+async function _getPlaylistData(playlistName) {
+  const url = "https://dashimaki.work/playlist/getMusicApi";
+  return await axios.get(url, { params: { name: playlistName } });
 }

@@ -9,6 +9,9 @@ const autoPlaylist = fs
 const Discord = require("discord.js");
 const client = new Discord.Client();
 
+const Bot = require("./src/bot");
+Bot.client = client;
+
 const {
   cmd_summon,
   cmd_disconnect,
@@ -16,35 +19,12 @@ const {
   cmd_skip,
   cmd_pause,
   cmd_resume,
+  cmd_setplaylist,
+  cmd_setaudiofilter,
 } = require("./src/commands");
 
-// Bot state
-const Bot = function () {
-  this.isPlaying = false;
-
-  this.connectedVoiceChannels = {};
-  this.connections = {};
-  this.dispatchers = {};
-
-  this.musicQueue = [];
-  this.autoPlaylist = [];
-  this.initPlaylist = function () {
-    const shuffle = ([...array]) => {
-      for (let i = array.length - 1; i >= 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
-    };
-    this.autoPlaylist = shuffle(autoPlaylist);
-  };
-
-  this.nowPlayingMusicTitle = "";
-  this.setNowPlayingStatus = function (title) {
-    client.user.setActivity(title, { type: "LISTENING" });
-  };
-};
-const self = new Bot();
+// key: guildId, value: {Bot}
+const dispatchingBots = {};
 
 client.once("ready", () => console.log("Ready!"));
 client.once("reconnecting", () => console.log("Reconnecting!"));
@@ -53,6 +33,18 @@ client.once("disconnect", () => console.log("Disconnect!"));
 client.on("message", async (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(prefix)) return;
+
+  const guildID = message.guild.id;
+  let self = dispatchingBots[guildID];
+  if (!self) {
+    // サーバーに呼び出し前の場合
+    dispatchingBots[guildID] = new Bot({
+      autoPlaylist,
+      audioFilter: settings.player.filter,
+    });
+    self = dispatchingBots[guildID];
+    Bot.dispatchingBotCount++;
+  }
 
   /**
    * debug command
@@ -69,7 +61,6 @@ client.on("message", async (message) => {
   if (message.content === "!summon") {
     cmd_summon({
       self,
-      guildID: message.guild.id,
       channelID: message.member.voice.channelID,
       voiceChannel: message.member.voice.channel,
     });
@@ -81,11 +72,9 @@ client.on("message", async (message) => {
    * Format: `!disconnect`
    */
   if (message.content === "!disconnect") {
-    cmd_disconnect({
-      self,
-      guildID: message.guild.id,
-      channelID: message.member.voice.channelID,
-    });
+    cmd_disconnect({ self });
+    delete dispatchingBots[guildID];
+    Bot.dispatchingBotCount--;
   }
 
   /**
@@ -95,11 +84,7 @@ client.on("message", async (message) => {
    */
   if (message.content.startsWith("!play")) {
     const [command, url] = message.content.split(" ");
-    cmd_play({
-      self,
-      guildID: message.guild.id,
-      url,
-    });
+    cmd_play({ self, url });
   }
 
   /**
@@ -108,10 +93,7 @@ client.on("message", async (message) => {
    * Format: `!skip`
    */
   if (message.content === "!skip") {
-    cmd_skip({
-      self,
-      guildID: message.guild.id,
-    });
+    cmd_skip({ self });
   }
 
   /**
@@ -120,22 +102,36 @@ client.on("message", async (message) => {
    * Format: `!pause` or `!stop`
    */
   if (message.content === "!pause" || message.content === "!stop") {
-    cmd_pause({
-      self,
-      guildID: message.guild.id,
-    });
+    cmd_pause({ self });
   }
 
   /**
    * resume command
    *
-   * Format: `!resume` pr `!start`
+   * Format: `!resume` or `!start`
    */
   if (message.content === "!resume" || message.content === "!start") {
-    cmd_resume({
-      self,
-      guildID: message.guild.id,
-    });
+    cmd_resume({ self });
+  }
+
+  /**
+   * setplaylist command
+   *
+   * Format: `!setplaylist {PlaylistName}`
+   */
+  if (message.content.startsWith("!setplaylist")) {
+    const [command, playlistName] = message.content.split(" ");
+    cmd_setplaylist({ self, playlistName });
+  }
+
+  /**
+   * setaudiofilter command
+   *
+   * Format: `!setaudiofilter {AudioFilter}`
+   */
+  if (message.content.startsWith("!setaudiofilter")) {
+    const [command, audioFilter] = message.content.split(" ");
+    cmd_setaudiofilter({ self, audioFilter });
   }
 });
 
