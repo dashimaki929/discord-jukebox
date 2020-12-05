@@ -53,6 +53,7 @@ exports.cmd_disconnect = async ({ self }) => {
     return;
   }
 
+  clearInterval(self.intervalId);
   await self.connection.disconnect();
 };
 
