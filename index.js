@@ -30,6 +30,42 @@ client.once("ready", () => console.log("Ready!"));
 client.once("reconnecting", () => console.log("Reconnecting!"));
 client.once("disconnect", () => console.log("Disconnect!"));
 
+client.on("voiceStateUpdate", async () => {
+  await Object.keys(dispatchingBots).map(async (channelID) => {
+    const bot = dispatchingBots[channelID];
+
+    if (!bot.connectedVoiceChannel) {
+      return;
+    }
+
+    const channel = bot.connectedVoiceChannel;
+    const members = channel.members.map(member => member.id);
+
+    if (members.length <= 1 && !bot.isAutoPause) {
+      await bot.dispatcher.pause();
+      bot.isAutoPause = true;
+      bot.setNowPlayingStatus(`\u275A\u275A ${bot.nowPlayingMusic.title} `);
+      Bot.dispatchingBotCount--;
+    } else if (members.length > 1 && bot.isAutoPause) {
+      await bot.dispatcher.resume();
+      bot.isAutoPause = false;
+      Bot.dispatchingBotCount++;
+      bot.setNowPlayingStatus(`${bot.nowPlayingMusic.title} `);
+    }
+  });
+
+  // 再生中のチャンネルが一つの場合曲名を再設定
+  if (Bot.dispatchingBotCount === 1) {
+    Object.keys(dispatchingBots).map((channelID) => {
+      const bot = dispatchingBots[channelID];
+      if (!bot.connectedVoiceChannel || bot.isAutoPause) {
+        return;
+      }
+      bot.setNowPlayingStatus(`${bot.isPlaying ? "" : "\u275A\u275A "}${bot.nowPlayingMusic.title} `);
+    });
+  }
+});
+
 client.on("message", async (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(prefix)) return;
@@ -51,7 +87,7 @@ client.on("message", async (message) => {
    * debug command
    */
   if (message.content === "!debug") {
-    console.log(self.nowPlayingMusic);
+    console.log(Bot.dispatchingBotCount);
   }
 
   /**

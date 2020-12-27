@@ -26,7 +26,7 @@ exports.cmd_summon = async ({ self, channelID, voiceChannel }) => {
   }
 
   await voiceChannel.join().then(async (connection) => {
-    self.connectedVoiceChannel = channelID;
+    self.connectedVoiceChannel = voiceChannel;
     self.connection = connection;
 
     if (!self.intervalId) {
@@ -87,12 +87,7 @@ exports.cmd_skip = async ({ self }) => {
     return;
   }
 
-  _fadeOut({
-    self,
-    callback: () => {
-      self.dispatcher.end();
-    },
-  });
+  await self.dispatcher.end();
 };
 
 /**
@@ -114,14 +109,9 @@ exports.cmd_pause = async ({ self }) => {
     return;
   }
 
-  _fadeOut({
-    self,
-    callback: () => {
-      self.dispatcher.pause();
-      self.isPlaying = false;
-      self.setNowPlayingStatus(`\u275A\u275A ${self.nowPlayingMusic.title} `);
-    },
-  });
+  await self.dispatcher.pause();
+  self.isPlaying = false;
+  self.setNowPlayingStatus(`\u275A\u275A ${self.nowPlayingMusic.title} `);
 };
 
 /**
@@ -143,11 +133,9 @@ exports.cmd_resume = async ({ self }) => {
     return;
   }
 
-  self.dispatcher.resume();
+  await self.dispatcher.resume();
   self.isPlaying = true;
   self.setNowPlayingStatus(`${self.nowPlayingMusic.title} `);
-
-  _fadeIn({ self });
 };
 
 /**
@@ -209,6 +197,7 @@ async function _play({ self, url, volume = self.volume, progress = 0 }) {
   });
 
   stream.on("info", (info) => {
+    console.log(info.videoDetails);
     self.nowPlayingMusic.title = info.videoDetails.title;
     self.setNowPlayingStatus(`${info.videoDetails.title} `);
   });
@@ -261,9 +250,9 @@ async function _timeSignal({ self }) {
   if (now.getMinutes() === 59 && now.getSeconds() === 55) {
     _fadeOut({
       self,
-      callback: () => {
-        self.dispatcher.pause();
-        self.connection
+      callback: async () => {
+        await self.dispatcher.pause();
+        await self.connection
           .play(fs.createReadStream("./mp3/jihou.mp3"), {
             volume: self.volume * 1.5,
           })
@@ -284,7 +273,7 @@ async function _timeSignal({ self }) {
   }
 }
 
-async function _fadeOut({ self, duration = 2000, x = 0, callback = () => {} }) {
+async function _fadeOut({ self, duration = 2000, x = 0, callback = () => { } }) {
   if (x <= 1) {
     setTimeout(() => {
       const y = Math.round(x * x * 100) / 100;
@@ -299,7 +288,7 @@ async function _fadeOut({ self, duration = 2000, x = 0, callback = () => {} }) {
   }
 }
 
-async function _fadeIn({ self, duration = 2000, x = 0, callback = () => {} }) {
+async function _fadeIn({ self, duration = 2000, x = 0, callback = () => { } }) {
   if (x <= 1) {
     setTimeout(() => {
       const y = Math.round(x * x * 100) / 100;

@@ -4,6 +4,7 @@ class Bot {
 
   constructor({ autoPlaylist = [], volume = 20, audioFilter = "" }) {
     this.isPlaying = false;
+    this.isAutoPause = false;
 
     this.connectedVoiceChannel = null;
     this.connection = null;
