@@ -176,10 +176,10 @@ client.on("message", async (message) => {
     cmd_disconnect({ self }).catch(msg => logger.warn(msg));
 
     if (self) {
-      self.setNowPlayingStatus("");
       if (!self.isAutoPause) {
         Bot.dispatchingBotCount--;
       }
+      self.setNowPlayingStatus("");
     }
     delete dispatchingBots[guildID];
   }
