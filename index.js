@@ -174,8 +174,14 @@ client.on("message", async (message) => {
    */
   if (message.content === "!disconnect") {
     cmd_disconnect({ self }).catch(msg => logger.warn(msg));
+
+    if (self) {
+      self.setNowPlayingStatus("");
+      if (!self.isAutoPause) {
+        Bot.dispatchingBotCount--;
+      }
+    }
     delete dispatchingBots[guildID];
-    Bot.dispatchingBotCount--;
   }
 
   /**
