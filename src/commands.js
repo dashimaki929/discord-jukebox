@@ -101,6 +101,8 @@ exports.cmd_pause = async ({ self = {} }) => {
   }
 
   await self.dispatcher.pause();
+  clearInterval(self.intervalId);
+
   self.isPlaying = false;
   self.setNowPlayingStatus(`\u275A\u275A ${self.nowPlayingMusic.title} `);
 };
@@ -122,6 +124,13 @@ exports.cmd_resume = async ({ self = {} }) => {
   }
 
   await self.dispatcher.resume();
+  if (!self.intervalId) {
+    // 時報タイマー設定
+    self.intervalId = setInterval(() => {
+      _timeSignal({ self });
+    }, 1000);
+  }
+
   self.isPlaying = true;
   self.setNowPlayingStatus(`${self.nowPlayingMusic.title} `);
 };
@@ -249,7 +258,7 @@ async function _playNext({ self }) {
  */
 async function _timeSignal({ self }) {
   const now = new Date();
-  if (now.getMinutes() === 59 && now.getSeconds() === 55) {
+  if (now.getMinutes() === 59 && now.getSeconds() === 55 && self.isPlaying && !self.isAutoPause) {
     _fadeOut({
       self,
       callback: async () => {
@@ -313,3 +322,5 @@ async function _getPlaylistData(playlistName) {
   logger.info(`FETCH: ${url}, { params: {name: ${playlistName}} }`);
   return await axios.get(url, { params: { name: playlistName } });
 }
+
+exports.timeSignal = _timeSignal;

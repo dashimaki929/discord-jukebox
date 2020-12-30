@@ -27,6 +27,7 @@ const {
   cmd_resume,
   cmd_setplaylist,
   cmd_setaudiofilter,
+  timeSignal,
 } = require("./src/commands");
 
 // key: guildId, value: {Bot}
@@ -74,7 +75,10 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     if (isBotOnly) {
       if (!bot.isAutoPause && isLeftChannel) {
         logger.info(`${oldState.guild.name} - ユーザーが全員退場したため音楽の再生を一時停止します。`);
+        
         await bot.dispatcher.pause();
+        clearInterval(bot.intervalId);
+
         bot.isAutoPause = true;
         bot.setNowPlayingStatus(`\u275A\u275A ${bot.nowPlayingMusic.title} `);
         Bot.dispatchingBotCount--;
@@ -82,7 +86,15 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     } else {
       if (bot.isAutoPause && isJoinChannel) {
         logger.info(`${oldState.guild.name} - ユーザーが入場したため一時停止していた音楽を再開します。`);
+      
         await bot.dispatcher.resume();
+        if (!bot.intervalId) {
+          // 時報タイマー設定
+          bot.intervalId = setInterval(() => {
+            timeSignal({ bot });
+          }, 1000);
+        }
+      
         bot.isAutoPause = false;
         Bot.dispatchingBotCount++;
         bot.setNowPlayingStatus(`${bot.nowPlayingMusic.title} `);
@@ -104,7 +116,15 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     const isJoinChannel = channel.id === newState.channel.id;
     if (bot.isAutoPause && isJoinChannel) {
       logger.info(`${newState.guild.name} - ユーザーが入場したため一時停止していた音楽を再開します。`);
+      
       await bot.dispatcher.resume();
+      if (!bot.intervalId) {
+        // 時報タイマー設定
+        bot.intervalId = setInterval(() => {
+          timeSignal({ bot });
+        }, 1000);
+      }
+
       bot.isAutoPause = false;
       Bot.dispatchingBotCount++;
       bot.setNowPlayingStatus(`${bot.nowPlayingMusic.title} `);
