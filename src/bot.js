@@ -38,7 +38,9 @@ class Bot {
   };
 
   setNowPlayingStatus = function (title) {
-    if (Bot.dispatchingBotCount === 1) {
+    if (Bot.dispatchingBotCount < 1) {
+      Bot.client.user.setActivity(`\u275A\u275A ${title}`, { type: "LISTENING" });
+    } else if (Bot.dispatchingBotCount === 1) {
       Bot.client.user.setActivity(title, { type: "LISTENING" });
     } else {
       Bot.client.user.setActivity(

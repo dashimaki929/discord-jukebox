@@ -1,10 +1,14 @@
 const fs = require("fs");
-const { settings } = JSON.parse(
-  fs.readFileSync("./config/settings.json", "utf8")
-);
-
 const ytdl = require("discord-ytdl-core");
 const axios = require("axios");
+
+let logger = null;
+let settings = null;
+
+exports.init = ({ _logger, _settings }) => {
+  logger = _logger;
+  settings = _settings;
+}
 
 /**
  * Call a bot to the voice channel you are on.
@@ -14,15 +18,9 @@ const axios = require("axios");
  * @param {*} channelID
  * @param {*} voiceChannel
  */
-exports.cmd_summon = async ({ self, channelID, voiceChannel }) => {
-  if (!channelID) {
-    console.log(
-      "[ERROR]",
-      "You are not connected to voice. Try joining a voice channel!"
-    );
-
-    // TODO: return; ではなく例外を投げる
-    return;
+exports.cmd_summon = async ({ self = {}, channelID, voiceChannel }) => {
+  if (!channelID || !voiceChannel) {
+    throw "ユーザーがチャンネルに未接続状態のためこのコマンドは実行できません。";
   }
 
   await voiceChannel.join().then(async (connection) => {
@@ -47,10 +45,9 @@ exports.cmd_summon = async ({ self, channelID, voiceChannel }) => {
  *
  * @param {*} self
  */
-exports.cmd_disconnect = async ({ self }) => {
+exports.cmd_disconnect = async ({ self = {} }) => {
   if (!self.connection) {
-    // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
-    return;
+    throw "このサーバーのボイスチャンネルにはまだ接続していないためこのコマンドは実行できません。";
   }
 
   clearInterval(self.intervalId);
@@ -63,10 +60,9 @@ exports.cmd_disconnect = async ({ self }) => {
  * @param {*} self
  * @param {*} url
  */
-exports.cmd_play = async ({ self, url }) => {
+exports.cmd_play = async ({ self = {}, url }) => {
   if (!self.connection) {
-    // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
-    return;
+    throw "このサーバーのボイスチャンネルにはまだ接続していないためこのコマンドは実行できません。";
   }
 
   self.musicQueue.unshift(url);
@@ -79,12 +75,10 @@ exports.cmd_play = async ({ self, url }) => {
  */
 exports.cmd_skip = async ({ self }) => {
   if (!self.connection) {
-    // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
-    return;
+    throw "このサーバーのボイスチャンネルにはまだ接続していないためこのコマンドは実行できません。";
   }
   if (!self.dispatcher) {
-    // TODO: 「音楽再生中じゃねーよ」って例外を投げる
-    return;
+    throw "音楽を再生中ではないためこのコマンドは実行できません。";
   }
 
   await self.dispatcher.end();
@@ -95,18 +89,15 @@ exports.cmd_skip = async ({ self }) => {
  *
  * @param {*} self
  */
-exports.cmd_pause = async ({ self }) => {
+exports.cmd_pause = async ({ self = {} }) => {
   if (!self.connection) {
-    // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
-    return;
+    throw "このサーバーのボイスチャンネルにはまだ接続していないためこのコマンドは実行できません。";
   }
   if (!self.dispatcher) {
-    // TODO: 「音楽再生中じゃねーよ」って例外を投げる
-    return;
+    throw "音楽を再生中ではないためこのコマンドは実行できません。";
   }
   if (!self.isPlaying) {
-    // TODO: 「すでに一時停止中だっつーの」って例外を投げる
-    return;
+    throw "すでに音楽を停止中のためこのコマンドは実行できません。";
   }
 
   await self.dispatcher.pause();
@@ -119,18 +110,15 @@ exports.cmd_pause = async ({ self }) => {
  *
  * @param {*} self
  */
-exports.cmd_resume = async ({ self }) => {
+exports.cmd_resume = async ({ self = {} }) => {
   if (!self.connection) {
-    // TODO: 「このサーバーのボイスチャンネルにまだ接続してねーよ」って例外を投げる
-    return;
+    throw "このサーバーのボイスチャンネルにはまだ接続していないためこのコマンドは実行できません。";
   }
   if (!self.dispatcher) {
-    // TODO: 「音楽再生中じゃねーよ」って例外を投げる
-    return;
+    throw "音楽を再生中ではないためこのコマンドは実行できません。";
   }
   if (self.isPlaying) {
-    // TODO: 「すでに再生中だっつーの」って例外を投げる
-    return;
+    throw "すでに音楽を再生中のためこのコマンドは実行できません。";
   }
 
   await self.dispatcher.resume();
@@ -143,14 +131,16 @@ exports.cmd_resume = async ({ self }) => {
  *
  * @param {*} self
  */
-exports.cmd_setplaylist = async ({ self, playlistName }) => {
+exports.cmd_setplaylist = async ({ self = {}, playlistName }) => {
   _getPlaylistData(playlistName)
     .then((res) => {
       self.autoPlaylist = res.data.split(/\r?\n/);
       self.initPlaylist();
+      logger.info(`プレイリストを「${playlistName}」へ更新しました。`);
     })
     .catch((err) => {
-      console.log(err);
+      logger.error(err);
+      logger.error(`プレイリストの更新に失敗しました。プレイリスト名が間違えているか、時間をおいて再度試してみてください。`);
     });
 };
 
@@ -159,7 +149,7 @@ exports.cmd_setplaylist = async ({ self, playlistName }) => {
  *
  * @param {*} self
  */
-exports.cmd_setaudiofilter = async ({ self, audioFilter }) => {
+exports.cmd_setaudiofilter = async ({ self = {}, audioFilter }) => {
   self.audioFilter = audioFilter;
 };
 
@@ -197,9 +187,20 @@ async function _play({ self, url, volume = self.volume, progress = 0 }) {
   });
 
   stream.on("info", (info) => {
-    console.log(info.videoDetails);
-    self.nowPlayingMusic.title = info.videoDetails.title;
-    self.setNowPlayingStatus(`${info.videoDetails.title} `);
+    const _info = {
+      title: info.videoDetails.title,
+      lengthSeconds: info.videoDetails.lengthSeconds,
+      author: info.videoDetails.author,
+      media: info.videoDetails.media,
+      video_url: info.videoDetails.video_url,
+      thumbnails: info.videoDetails.thumbnails,
+    }
+
+    logger.info(`次の音楽 >>>> ${_info.title}`);
+    logger.debug(_info);
+
+    self.nowPlayingMusic.title = _info.title;
+    self.setNowPlayingStatus(`${_info.title} `);
   });
 
   self.isPlaying = true;
@@ -215,7 +216,8 @@ async function _play({ self, url, volume = self.volume, progress = 0 }) {
       _playNext({ self });
     })
     .on("error", (error) => {
-      console.error(error);
+      logger.error(`音楽の再生に失敗しました。`);
+      logger.error(error);
       _playNext({ self });
     });
 }
@@ -308,5 +310,6 @@ async function _fadeIn({ self, duration = 2000, x = 0, callback = () => { } }) {
  */
 async function _getPlaylistData(playlistName) {
   const url = "https://dashimaki.work/playlist/getMusicApi";
+  logger.info(`FETCH: ${url}, { params: {name: ${playlistName}} }`);
   return await axios.get(url, { params: { name: playlistName } });
 }

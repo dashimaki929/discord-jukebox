@@ -14,3 +14,6 @@ cache/
 
 # configファイル(Token情報保護のため)
 config/settings.json
+
+# logsフォルダ
+logs
