@@ -51,6 +51,7 @@ exports.cmd_disconnect = async ({ self = {} }) => {
   }
 
   clearInterval(self.intervalId);
+  self.intervalId = null;
   await self.connection.disconnect();
 };
 
@@ -102,6 +103,7 @@ exports.cmd_pause = async ({ self = {} }) => {
 
   await self.dispatcher.pause();
   clearInterval(self.intervalId);
+  self.intervalId = null;
 
   self.isPlaying = false;
   self.setNowPlayingStatus(`\u275A\u275A ${self.nowPlayingMusic.title} `);

@@ -78,6 +78,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
         
         await bot.dispatcher.pause();
         clearInterval(bot.intervalId);
+        bot.intervalId = null;
 
         bot.isAutoPause = true;
         bot.setNowPlayingStatus(`\u275A\u275A ${bot.nowPlayingMusic.title} `);
