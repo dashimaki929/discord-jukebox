@@ -92,7 +92,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
         if (!bot.intervalId) {
           // 時報タイマー設定
           bot.intervalId = setInterval(() => {
-            timeSignal({ bot });
+            timeSignal({ self: bot });
           }, 1000);
         }
       
@@ -122,7 +122,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
       if (!bot.intervalId) {
         // 時報タイマー設定
         bot.intervalId = setInterval(() => {
-          timeSignal({ bot });
+          timeSignal({ self: bot });
         }, 1000);
       }
 
@@ -161,7 +161,7 @@ client.on("message", async (message) => {
    * debug command
    */
   if (message.content === "!debug") {
-    console.log(dispatchingBots);
+    logger.debug(self);
   }
 
   /**
