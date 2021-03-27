@@ -176,6 +176,14 @@ exports.cmd_setaudiofilter = async ({ self = {}, audioFilter }) => {
  * @param {*} url
  */
 async function _play({ self, url, volume = self.volume, progress = 0 }) {
+  if (!progress) {
+    const seekQuery = url.match(/t=[0-9]+/);
+    if (seekQuery) {
+      const [key, value] = seekQuery[0].split("=");
+      progress = value;
+    }
+  }
+
   const stream = await ytdl(url, {
     filter: "audioonly",
     opusEncoded: true,
