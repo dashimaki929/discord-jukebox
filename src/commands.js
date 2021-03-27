@@ -229,7 +229,7 @@ async function _play({ self, url, volume = self.volume, progress = 0 }) {
       volume,
     })
     .on("start", () => {
-      self.nowPlayingMusic.progress = 0;
+      self.nowPlayingMusic.progress = progress;
     })
     .on("finish", () => {
       _playNext({ self });
