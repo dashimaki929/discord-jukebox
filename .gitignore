@@ -1,0 +1,19 @@
+# ディレクトリを指定する場合
+node_modules/
+
+# ファイルのパターン一致でコンパイルなどで生成したファイルを指定する場合
+# *.com
+# *.class
+# *.dll
+# *.exe
+# *.o
+# *.so
+
+# 音楽のキャッシュファイル
+cache/
+
+# configファイル(Token情報保護のため)
+config/settings.json
+
+# logsフォルダ
+logs

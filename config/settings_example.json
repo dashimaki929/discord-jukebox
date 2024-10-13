@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "bot": {
+      "id": "{YOUR_BOT_ID}",
+      "token": "{YOUR_BOT_TOKEN}"
+    },
+    "player": {
+      "volume": 5,
+      "filter": ""
+    },
+    "headers": {
+      "cookie": "SID=<~70 characters>.;HSID=<~15 chars>;SSID=<~15 chars>;"
+    }
+  },
+  "prefix": "!"
+}
